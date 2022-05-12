@@ -1,0 +1,47 @@
+version: "3"
+
+volumes:
+  proxydata:
+  ikev2-vpn-data:
+networks:
+  static-network:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+services:
+  vpn:
+    image: hwdsl2/ipsec-vpn-server
+    restart: always
+    env_file:
+      - ./vpn.env
+    ports:
+      - "500:500/udp"
+      - "4500:4500/udp"
+    hostname: ipsec-vpn-server
+    privileged: true
+    container_name: ipsec-vpn-server
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - ikev2-vpn-data:/etc/ipsec.d
+    networks:
+      static-network:
+        ipv4_address: 172.20.128.3
+      #network_mode: "host"
+  mitmproxy:
+    image: mitmproxy/mitmproxy:latest
+    ports:
+      - "8080:8080/tcp"
+      - "8081:8081/tcp"
+    volumes: 
+      - proxydata:/proxydata
+    hostname: mitmproxy
+    container_name: mitmproxy
+    #command: mitmdump --mode transparent --showhost
+    #command: mitmdump --ssl-insecure # --set proxyauth=${PROXY_USER}:${PROXY_PASS}
+    command: mitmweb --web-host 0.0.0.0 --set tls_version_client_min=TLS1 --set anticache=true --set anticomp=true
+    restart: unless-stopped
+    networks:
+      static-network:
+        ipv4_address: 172.20.128.2
+      #network_mode: "host"
